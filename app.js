@@ -12,8 +12,8 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/', routes);
+app.use('/api/scrapify/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/scrapify', routes);
 
 
 const PORT = process.env.PORT || 5000;
