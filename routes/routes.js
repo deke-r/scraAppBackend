@@ -1237,7 +1237,7 @@ router.post('/book-service', authenticate, upload.array('images', 10), (req, res
                             <tr>
                               <td valign="top" style="padding-top:20px;text-align:center">
                                 <span style="color:#666;font-family:helvetica;font-size:12px;line-height:18px">
-                                  For support, contact us at support@scrapify.com
+                                  For support, contact us at info@scrapify.com
                                 </span>
                               </td>
                             </tr>
@@ -1412,7 +1412,7 @@ router.get('/admin/accept-booking/:bookingId', (req, res) => {
                                           <br><br>
                                           <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px"><strong>Need Help?</strong></span>
                                           <br>
-                                          <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">Call: +91 98765 43210 | Email: support@scrapify.com</span>
+                                          <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">Call: +91 98765 43210 | Email: info@scrapify.com</span>
                                           <br><br>
                                           <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">Thank you for choosing Scrapify!</span>
                                           <br><br>
