@@ -897,6 +897,7 @@ router.post('/contact-support', authenticate, (req, res) => {
 // );
 
 router.post('/book-service', authenticate, upload.array('images', 10), (req, res) => {
+  try {
   console.log('Body:', req.body);
   console.log('Files:', req.files);
 
@@ -1266,6 +1267,14 @@ router.post('/book-service', authenticate, upload.array('images', 10), (req, res
       );
     }
   );
+
+
+
+   } catch (err) {
+    console.error('Unexpected Error in /book-service:', err);
+    return res.status(500).json({ error: 'Something went wrong. Please try again later.' });
+  }
+
 });
 
 // Accept booking
