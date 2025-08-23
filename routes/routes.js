@@ -1648,4 +1648,93 @@ router.get('/admin/reject-booking/:bookingId', (req, res) => {
 });
 
 
+
+// Get user orders
+router.get('/orders', authenticate, (req, res) => {
+  const userId = req.user.id;
+  
+  con.query(
+    `SELECT 
+      sb.id,
+      sb.service_title,
+      sb.selected_items,
+      sb.description,
+      sb.status,
+      sb.booking_date,
+      sb.booking_time,
+      sb.created_at,
+      sb.updated_at,
+      ua.street,
+      ua.area,
+      ua.city,
+      ua.pincode,
+      GROUP_CONCAT(bi.file_path) as images
+    FROM service_bookings sb
+    LEFT JOIN user_addresses ua ON sb.address_id = ua.id
+    LEFT JOIN booking_images bi ON sb.id = bi.booking_id
+    WHERE sb.user_id = ?
+    GROUP BY sb.id
+    ORDER BY sb.created_at DESC`,
+    [userId],
+    (err, results) => {
+      if (err) {
+        console.error('Error fetching orders:', err);
+        return res.status(500).json({ error: 'Failed to fetch orders' });
+      }
+      
+      // Process results to format data properly
+      const orders = results.map(order => ({
+        id: order.id,
+        serviceTitle: order.service_title,
+        selectedItems: JSON.parse(order.selected_items || '[]'),
+        description: order.description,
+        status: order.status,
+        bookingDate: order.booking_date,
+        bookingTime: order.booking_time,
+        createdAt: order.created_at,
+        updatedAt: order.updated_at,
+        address: {
+          street: order.street,
+          area: order.area,
+          city: order.city,
+          pincode: order.pincode
+        },
+        images: order.images ? order.images.split(',').map(img => img.trim()) : []
+      }));
+      
+      res.json({ success: true, orders });
+    }
+  );
+});
+
+// Update order status (for admin use)
+router.patch('/orders/:orderId/status', authenticate, (req, res) => {
+  const { orderId } = req.params;
+  const { status } = req.body;
+  
+  // Validate status
+  const validStatuses = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+  
+  con.query(
+    'UPDATE service_bookings SET status = ?, updated_at = NOW() WHERE id = ? AND user_id = ?',
+    [status, orderId, req.user.id],
+    (err, result) => {
+      if (err) {
+        console.error('Error updating order status:', err);
+        return res.status(500).json({ error: 'Failed to update order status' });
+      }
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      
+      res.json({ success: true, message: 'Order status updated successfully' });
+    }
+  );
+});
+
+
 module.exports = router;
