@@ -763,519 +763,380 @@ router.post('/contact-support', authenticate, (req, res) => {
   );
 });
 
-// Book service with image upload
-// router.post(
-//   '/book-service',
-//   authenticate,
-//   upload.array('images', 10),
-//   (req, res) => {
-//     console.log('Body:', req.body);
-//     console.log('Files:', req.files);
 
-
-   
-//     const {
-//       serviceId,
-//       serviceTitle,
-//       selectedItems,
-//       description = '',
-//       street,
-//       area,
-//       city,
-//       pincode
-//     } = req.body;
-
-//     if (!serviceId || !serviceTitle || !selectedItems) {
-//       return res
-//         .status(400)
-//         .json({ error: 'Service details and selected items are required.' });
-//     }
-
-//     let parsedItems;
-//     try {
-//       parsedItems = JSON.parse(selectedItems);
-//       if (!Array.isArray(parsedItems) || parsedItems.length === 0) {
-//         throw new Error();
-//       }
-//     } catch {
-//       return res
-//         .status(400)
-//         .json({ error: 'Invalid selected items format.' });
-//     }
-
-//     con.query(
-//       `INSERT INTO service_bookings 
-//        (user_id, service_id, service_title, selected_items, description, status, created_at, updated_at) 
-//        VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-//       [
-//         req.user.id,
-//         serviceId,
-//         serviceTitle,
-//         JSON.stringify(parsedItems),
-//         description,
-//         'pending'
-//       ],
-//       (err, result) => {
-//         if (err) {
-//           console.error('DB Error creating booking:', err);
-//           return res.status(500).json({ error: 'Server error' });
-//         }
-
-//         const bookingId = result.insertId;
-
-//         if (req.files?.length) {
-//           const imageValues = req.files.map(file => [
-//             bookingId,
-//             file.filename,
-//             file.path
-//           ]);
-//           con.query(
-//             'INSERT INTO booking_images (booking_id, filename, file_path) VALUES ?',
-//             [imageValues],
-//             err2 => {
-//               if (err2) console.error('Image Save Error:', err2);
-//             }
-//           );
-//         }
-
-//         const transporter = nodemailer.createTransport({
-//           service: 'gmail',
-//           auth: {
-//             user: process.env.MAIL_USER,
-//             pass: process.env.MAIL_PASS
-//           }
-//         });
-
-//         const itemsList = parsedItems
-//           .map(i => `${i.name} (${i.price})`)
-//           .join(', ');
-
-//         const salesMail = {
-//           from: `"Scrapify" <${process.env.MAIL_USER}>`,
-//           to: process.env.SALES_MAIL,
-//           subject: `🆕 New Service Booking - #${bookingId}`,
-//           html: `
-//             <h2>New Booking Received</h2>
-//             <p><b>Customer:</b> ${req.user.name} (${req.user.email})</p>
-//             <p><b>Service:</b> ${serviceTitle}</p>
-//             <p><b>Items:</b> ${itemsList}</p>
-//             <p><b>Description:</b> ${description || 'N/A'}</p>
-//             <p><b>Address:</b> ${street}, ${area}, ${city} - ${pincode}</p>
-//             <p><b>Status:</b> Pending</p>
-//           `
-//         };
-
-//         const customerMail = {
-//           from: `"Scrapify" <${process.env.MAIL_USER}>`,
-//           to: req.user.email,
-//           subject: `Service Booking Confirmed - #${bookingId}`,
-//           html: `
-//             <h2>✅ Your booking is confirmed!</h2>
-//             <p><b>Service:</b> ${serviceTitle}</p>
-//             <p><b>Items:</b> ${parsedItems.length} selected</p>
-//             <p><b>Status:</b> Pending</p>
-//             <p>Our team will contact you within 24 hours for pickup.</p>
-//           `
-//         };
-
-//         transporter.sendMail(salesMail, errMail =>
-//           errMail && console.error('Sales Mail Error:', errMail)
-//         );
-//         transporter.sendMail(customerMail, errMail =>
-//           errMail && console.error('Customer Mail Error:', errMail)
-//         );
-
-//         return res.json({
-//           success: true,
-//           message:
-//             'Service booked successfully. Emails sent to customer and sales team.',
-//           bookingId
-//         });
-//       }
-//     );
-//   }
-// );
 
 router.post('/book-service', authenticate, upload.array('images', 10), (req, res) => {
   try {
-  console.log('Body:', req.body);
-  console.log('Files:', req.files);
+    console.log('Body:', req.body);
+    console.log('Files:', req.files);
 
-  const {
-    serviceId,
-    serviceTitle,
-    selectedItems,
-    description = '',
-    street = '',
-    area = '',
-    city = '',
-    pincode = ''
-  } = req.body;
+    const {
+      serviceId,
+      serviceTitle,
+      selectedItems,
+      description = '',
+      street = '',
+      area = '',
+      city = '',
+      pincode = ''
+    } = req.body;
 
-  if (!serviceId || !selectedItems) {
-    return res.status(400).json({ error: 'Service ID and selected items are required.' });
-  }
+    if (!serviceId || !selectedItems) {
+      return res.status(400).json({ error: 'Service ID and selected items are required.' });
+    }
 
-  let parsedItems;
-  try {
-    parsedItems = JSON.parse(selectedItems);
-    if (!Array.isArray(parsedItems) || parsedItems.length === 0) throw new Error();
-  } catch {
-    return res.status(400).json({ error: 'Invalid selected items format.' });
-  }
+    // Parse selected items
+    let parsedItems;
+    try {
+      parsedItems = JSON.parse(selectedItems);
+      if (!Array.isArray(parsedItems) || parsedItems.length === 0) throw new Error();
+    } catch {
+      return res.status(400).json({ error: 'Invalid selected items format.' });
+    }
 
-  const bookingDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  const bookingTime = new Date().toTimeString().split(' ')[0]; // HH:MM:SS
-  const fullAddress = `${street}, ${area}, ${city} - ${pincode}`;
+    const bookingDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const bookingTime = new Date().toTimeString().split(' ')[0]; // HH:MM:SS
+    const fullAddress = `${street}, ${area}, ${city} - ${pincode}`;
 
-  // First save address if provided
-  let addressId = null;
-  if (street && area && city && pincode) {
+    // Step 1: Create booking
     con.query(
-      'INSERT INTO user_addresses (user_id, street, area, city, pincode) VALUES (?, ?, ?, ?, ?)',
-      [req.user.id, street, area, city, pincode],
+      `INSERT INTO service_bookings 
+       (user_id, service_id, service_title, selected_items, description, booking_date, booking_time, status, created_at, updated_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [
+        req.user.id,
+        serviceId,
+        serviceTitle || `Service #${serviceId}`,
+        JSON.stringify(parsedItems),
+        description,
+        bookingDate,
+        bookingTime,
+        'pending'
+      ],
       (err, result) => {
         if (err) {
-          console.error('Address Save Error:', err);
-        } else {
-          addressId = result.insertId;
+          console.error('DB Error creating booking:', err);
+          return res.status(500).json({ error: 'Server error while creating booking.' });
         }
-      }
-    );
-  }
 
-  con.query(
-    `INSERT INTO service_bookings 
-     (user_id, service_id, service_title, selected_items, description, booking_date, booking_time, address_id, status, created_at, updated_at) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-    [
-      req.user.id,
-      serviceId,
-      serviceTitle || `Service #${serviceId}`,
-      JSON.stringify(parsedItems),
-      description,
-      bookingDate,
-      bookingTime,
-      addressId,
-      'pending'
-    ],
-    (err, result) => {
-      if (err) {
-        console.error('DB Error creating booking:', err);
-        return res.status(500).json({ error: 'Server error while creating booking.' });
-      }
+        const bookingId = result.insertId;
 
-      const bookingId = result.insertId;
+        // Step 2: Save order address
+        if (street && area && city && pincode) {
+          con.query(
+            `INSERT INTO order_addresses (booking_id, street, area, city, pincode) 
+             VALUES (?, ?, ?, ?, ?)`,
+            [bookingId, street, area, city, pincode],
+            err2 => {
+              if (err2) console.error('Order Address Save Error:', err2);
+            }
+          );
+        }
 
-      // Save images if any
-      if (req.files?.length) {
-        const imageValues = req.files.map(file => [
-          bookingId, 
-          file.filename, 
-          `uploads/${file.filename}`,
-          new Date()
-        ]);
+        // Step 3: Save images
+        if (req.files?.length) {
+          const imageValues = req.files.map(file => [
+            bookingId,
+            file.filename,
+            `uploads/${file.filename}`,
+            new Date()
+          ]);
+          con.query(
+            'INSERT INTO booking_images (booking_id, image_url, file_path, uploaded_at) VALUES ?',
+            [imageValues],
+            err2 => {
+              if (err2) console.error('Image Save Error:', err2);
+            }
+          );
+        }
+
+        // Step 4: Fetch user details
         con.query(
-          'INSERT INTO booking_images (booking_id, image_url, file_path, uploaded_at) VALUES ?',
-          [imageValues],
-          err2 => {
-            if (err2) console.error('Image Save Error:', err2);
+          'SELECT id, name, email, phone, profile_pic FROM users WHERE id = ?',
+          [req.user.id],
+          (err, userResults) => {
+            if (err || userResults.length === 0) {
+              console.error('Error fetching user details:', err);
+              return res.status(500).json({ error: 'Error fetching user details.' });
+            }
+
+            const user = userResults[0];
+            const transporter = nodemailer.createTransport({
+              service: 'gmail',
+              auth: {
+                user: process.env.MAIL_USER,
+                pass: process.env.MAIL_PASS
+              }
+            });
+
+            const itemsList = parsedItems.map(i => `${i.name} (${i.price})`).join(', ');
+            const totalItems = parsedItems.length;
+
+            // Generate image HTML for email
+            let imagesHTML = '';
+            if (req.files && req.files.length > 0) {
+              imagesHTML = `
+                <tr>
+                  <td valign="top" style="padding:20px 50px">
+                    <span style="font-family:helvetica;font-size:16px;font-weight:bold">Uploaded Images (${req.files.length}):</span>
+                    <br><br>
+                    ${req.files.map(file => `
+                      <img src="cid:${file.filename}" alt="Uploaded Image" style="max-width:200px;height:auto;border:1px solid #e4e4e4;margin:5px;border-radius:4px;">
+                    `).join('')}
+                  </td>
+                </tr>
+              `;
+            }
+
+            // Professional Monochrome Email to Sales with Accept/Reject buttons
+            const salesMail = {
+              from: `"Scrapify" <${process.env.MAIL_USER}>`,
+              to: 'bhavishya.sense@gmail.com',
+              subject: `New Service Booking - #${bookingId}`,
+              html: `
+                <table align="center" border="0" cellpadding="0" cellspacing="0" height="100%" width="100%">
+                  <tr>
+                    <td align="center" valign="top">
+                      <table border="0" cellpadding="0" cellspacing="0" width="600" style="border:1px solid #e4e4e4">
+                        <tr>
+                          <td valign="top">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
+                              <tr>
+                                <td valign="top" style="text-align:center;padding-top:20px;padding-bottom:20px;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif">
+                                  <table align="center" border="0" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                      <td style="border-bottom:2px solid #202020">
+                                        <h1 style="text-align:center;margin:0;font-size:24px;font-weight:bold;color:#202020">
+                                          New Service Booking
+                                        </h1>
+                                      </td>
+                                    </tr>
+                                  </table>
+                                  <p style="margin:10px 0 0 0;color:#666;font-size:14px">Booking ID: #${bookingId}</p>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td valign="top">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
+                              <tr>
+                                <td valign="top" style="padding-top:30px;padding-right:50px;padding-bottom:30px;padding-left:50px">
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Customer Details:</span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                    <strong>Name:</strong> ${user.name}<br>
+                                    <strong>Email:</strong> ${user.email}<br>
+                                    <strong>Phone:</strong> ${user.phone}
+                                  </span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Service Information:</span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                    <strong>Service:</strong> ${serviceTitle || `Service #${serviceId}`}<br>
+                                    <strong>Total Items:</strong> ${totalItems} items<br>
+                                    <strong>Description:</strong> ${description || 'No description provided'}
+                                  </span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Selected Items:</span>
+                                  <br><br>
+                                  ${parsedItems.map((item, index) => `
+                                    <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                      ${index + 1}. <strong>${item.name}</strong> - ${item.price}
+                                      ${item.quantity ? ` (Qty: ${item.quantity})` : ''}
+                                      ${item.category ? ` - Category: ${item.category}` : ''}
+                                    </span><br>
+                                  `).join('')}
+                                  <br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Pickup Address:</span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                    ${fullAddress}
+                                  </span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Action Required:</span>
+                                  <br><br>
+                                  <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                    <tr>
+                                      <td align="center">
+                                        <a href="${process.env.URL}/admin/accept-booking/${bookingId}" style="background-color:#28a745;color:white;padding:12px 30px;text-decoration:none;border-radius:4px;margin:0 10px;display:inline-block;font-family:helvetica;font-size:14px;font-weight:bold">Accept Order</a>
+                                        <a href="${process.env.URL}/admin/reject-booking/${bookingId}" style="background-color:#dc3545;color:white;padding:12px 30px;text-decoration:none;border-radius:4px;margin:0 10px;display:inline-block;font-family:helvetica;font-size:14px;font-weight:bold">Reject Order</a>
+                                      </td>
+                                    </tr>
+                                  </table>
+                                  <br><br>
+                                  <span style="color:#666;font-family:helvetica;font-size:13px;line-height:20px">
+                                    Click the buttons above to accept or reject this booking.<br>
+                                    Booking received on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+                                  </span>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                        ${imagesHTML}
+                      </table>
+                      <table border="0" cellpadding="0" cellspacing="0" width="600">
+                        <tr>
+                          <td>
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
+                              <tr>
+                                <td valign="top" style="padding-top:20px;text-align:center">
+                                  <span style="color:#666;font-family:helvetica;font-size:12px;line-height:18px">
+                                    Scrapify - Professional Scrap Management Services
+                                  </span>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              `,
+              attachments: req.files ? req.files.map(file => ({
+                filename: file.originalname,
+                path: file.path,
+                cid: file.filename
+              })) : []
+            };
+  
+            // Professional Monochrome Email to Customer
+            const customerMail = {
+              from: `"Scrapify" <${process.env.MAIL_USER}>`,
+              to: user.email,
+              subject: `Booking Confirmed - #${bookingId}`,
+              html: `
+                <table align="center" border="0" cellpadding="0" cellspacing="0" height="100%" width="100%">
+                  <tr>
+                    <td align="center" valign="top">
+                      <table border="0" cellpadding="0" cellspacing="0" width="600" style="border:1px solid #e4e4e4">
+                        <tr>
+                          <td valign="top">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
+                              <tr>
+                                <td valign="top" style="text-align:center;padding-top:20px;padding-bottom:20px;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif">
+                                  <table align="center" border="0" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                      <td style="border-bottom:2px solid #202020">
+                                        <h1 style="text-align:center;margin:0;font-size:24px;font-weight:bold;color:#202020">
+                                          Booking Confirmed
+                                        </h1>
+                                      </td>
+                                    </tr>
+                                  </table>
+                                  <p style="margin:10px 0 0 0;color:#666;font-size:14px">Booking ID: #${bookingId}</p>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td valign="top">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
+                              <tr>
+                                <td valign="top" style="padding-top:30px;padding-right:50px;padding-bottom:30px;padding-left:50px">
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">Dear ${user.name},</span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                    Your booking has been successfully confirmed. We have received your request and our team will process it shortly.
+                                  </span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Booking Summary:</span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                    <br>
+                                    <strong>Items Selected:</strong> ${totalItems} items<br>
+                                    <strong>Status:</strong> <span style="background-color:#f8f9fa;padding:4px 8px;border-radius:3px;border:1px solid #e4e4e4">Pending</span>
+                                  </span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Selected Items:</span>
+                                  <br><br>
+                                  ${parsedItems.map((item, index) => `
+                                    <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                      ${index + 1}. <strong>${item.name}</strong> - ${item.price}
+                                      ${item.quantity ? ` (Qty: ${item.quantity})` : ''}
+                                    </span><br>
+                                  `).join('')}
+                                  <br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Pickup Address:</span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                    ${fullAddress}
+                                  </span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Next Steps:</span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                    • Our team will review your booking within 24 hours<br>
+                                    • You'll receive a confirmation call from our pickup team<br>
+                                    • We'll schedule a convenient pickup time<br>
+                                    • Payment will be processed after pickup completion
+                                  </span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                    <strong>Booking Date:</strong> ${new Date().toLocaleDateString()}
+                                  </span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                    Thank you for choosing Scrapify. If you have any questions, please contact our support team.
+                                  </span>
+                                  <br><br>
+                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
+                                    Best regards,<br>
+                                    The Scrapify Team
+                                  </span>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                      <table border="0" cellpadding="0" cellspacing="0" width="600">
+                        <tr>
+                          <td>
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
+                              <tr>
+                                <td valign="top" style="padding-top:20px;text-align:center">
+                                  <span style="color:#666;font-family:helvetica;font-size:12px;line-height:18px">
+                                    For support, contact us at support@scrapify.com
+                                  </span>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              `
+            };
+
+            transporter.sendMail(salesMail, errMail =>
+              errMail && console.error('Sales Mail Error:', errMail)
+            );
+            transporter.sendMail(customerMail, errMail =>
+              errMail && console.error('Customer Mail Error:', errMail)
+            );
+
+            return res.json({
+              success: true,
+              message: 'Booking successful. Emails sent.',
+              bookingId
+            });
           }
         );
       }
-
-      // Fetch complete user details from database
-      con.query(
-        'SELECT id, name, email, phone, profile_pic FROM users WHERE id = ?',
-        [req.user.id],
-        (err, userResults) => {
-          if (err || userResults.length === 0) {
-            console.error('Error fetching user details:', err);
-            return res.status(500).json({ error: 'Error fetching user details.' });
-          }
-
-          const user = userResults[0];
-
-          // Prepare mailer
-          const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-              user: process.env.MAIL_USER,
-              pass: process.env.MAIL_PASS
-            }
-          });
-
-          const itemsList = parsedItems.map(i => `${i.name} (${i.price})`).join(', ');
-          const totalItems = parsedItems.length;
-
-          // Generate image HTML for email
-          let imagesHTML = '';
-          if (req.files && req.files.length > 0) {
-            imagesHTML = `
-              <tr>
-                <td valign="top" style="padding-top:20px;padding-right:50px;padding-bottom:20px;padding-left:50px">
-                  <span style="color:#202020;font-family:helvetica;font-size:16px;line-height:24px;font-weight:bold">Uploaded Images (${req.files.length}):</span>
-                  <br><br>
-                  ${req.files.map(file => `
-                    <img src="cid:${file.filename}" alt="Uploaded Image" style="max-width:200px;height:auto;border:1px solid #e4e4e4;margin:5px;border-radius:4px;">
-                  `).join('')}
-                </td>
-              </tr>
-            `;
-          }
-
-          // Professional Monochrome Email to Sales with Accept/Reject buttons
-          const salesMail = {
-            from: `"Scrapify" <${process.env.MAIL_USER}>`,
-            to: 'bhavishya.sense@gmail.com',
-            subject: `New Service Booking - #${bookingId}`,
-            html: `
-              <table align="center" border="0" cellpadding="0" cellspacing="0" height="100%" width="100%">
-                <tr>
-                  <td align="center" valign="top">
-                    <table border="0" cellpadding="0" cellspacing="0" width="600" style="border:1px solid #e4e4e4">
-                      <tr>
-                        <td valign="top">
-                          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
-                            <tr>
-                              <td valign="top" style="text-align:center;padding-top:20px;padding-bottom:20px;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif">
-                                <table align="center" border="0" cellpadding="0" cellspacing="0">
-                                  <tr>
-                                    <td style="border-bottom:2px solid #202020">
-                                      <h1 style="text-align:center;margin:0;font-size:24px;font-weight:bold;color:#202020">
-                                        New Service Booking
-                                      </h1>
-                                    </td>
-                                  </tr>
-                                </table>
-                                <p style="margin:10px 0 0 0;color:#666;font-size:14px">Booking ID: #${bookingId}</p>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td valign="top">
-                          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
-                            <tr>
-                              <td valign="top" style="padding-top:30px;padding-right:50px;padding-bottom:30px;padding-left:50px">
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Customer Details:</span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                  <strong>Name:</strong> ${user.name}<br>
-                                  <strong>Email:</strong> ${user.email}<br>
-                                  <strong>Phone:</strong> ${user.phone}
-                                </span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Service Information:</span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                  <strong>Service:</strong> ${serviceTitle || `Service #${serviceId}`}<br>
-                                  <strong>Total Items:</strong> ${totalItems} items<br>
-                                  <strong>Description:</strong> ${description || 'No description provided'}
-                                </span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Selected Items:</span>
-                                <br><br>
-                                ${parsedItems.map((item, index) => `
-                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                    ${index + 1}. <strong>${item.name}</strong> - ${item.price}
-                                    ${item.quantity ? ` (Qty: ${item.quantity})` : ''}
-                                    ${item.category ? ` - Category: ${item.category}` : ''}
-                                  </span><br>
-                                `).join('')}
-                                <br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Pickup Address:</span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                  ${fullAddress}
-                                </span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Action Required:</span>
-                                <br><br>
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                  <tr>
-                                    <td align="center">
-                                      <a href="${process.env.URL}/admin/accept-booking/${bookingId}" style="background-color:#28a745;color:white;padding:12px 30px;text-decoration:none;border-radius:4px;margin:0 10px;display:inline-block;font-family:helvetica;font-size:14px;font-weight:bold">Accept Order</a>
-                                      <a href="${process.env.URL}/admin/reject-booking/${bookingId}" style="background-color:#dc3545;color:white;padding:12px 30px;text-decoration:none;border-radius:4px;margin:0 10px;display:inline-block;font-family:helvetica;font-size:14px;font-weight:bold">Reject Order</a>
-                                    </td>
-                                  </tr>
-                                </table>
-                                <br><br>
-                                <span style="color:#666;font-family:helvetica;font-size:13px;line-height:20px">
-                                  Click the buttons above to accept or reject this booking.<br>
-                                  Booking received on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
-                                </span>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      ${imagesHTML}
-                    </table>
-                    <table border="0" cellpadding="0" cellspacing="0" width="600">
-                      <tr>
-                        <td>
-                          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
-                            <tr>
-                              <td valign="top" style="padding-top:20px;text-align:center">
-                                <span style="color:#666;font-family:helvetica;font-size:12px;line-height:18px">
-                                  Scrapify - Professional Scrap Management Services
-                                </span>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            `,
-            attachments: req.files ? req.files.map(file => ({
-              filename: file.originalname,
-              path: file.path,
-              cid: file.filename
-            })) : []
-          };
-
-          // Professional Monochrome Email to Customer
-          const customerMail = {
-            from: `"Scrapify" <${process.env.MAIL_USER}>`,
-            to: user.email,
-            subject: `Booking Confirmed - #${bookingId}`,
-            html: `
-              <table align="center" border="0" cellpadding="0" cellspacing="0" height="100%" width="100%">
-                <tr>
-                  <td align="center" valign="top">
-                    <table border="0" cellpadding="0" cellspacing="0" width="600" style="border:1px solid #e4e4e4">
-                      <tr>
-                        <td valign="top">
-                          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
-                            <tr>
-                              <td valign="top" style="text-align:center;padding-top:20px;padding-bottom:20px;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif">
-                                <table align="center" border="0" cellpadding="0" cellspacing="0">
-                                  <tr>
-                                    <td style="border-bottom:2px solid #202020">
-                                      <h1 style="text-align:center;margin:0;font-size:24px;font-weight:bold;color:#202020">
-                                        Booking Confirmed
-                                      </h1>
-                                    </td>
-                                  </tr>
-                                </table>
-                                <p style="margin:10px 0 0 0;color:#666;font-size:14px">Booking ID: #${bookingId}</p>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td valign="top">
-                          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
-                            <tr>
-                              <td valign="top" style="padding-top:30px;padding-right:50px;padding-bottom:30px;padding-left:50px">
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">Dear ${user.name},</span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                  Your booking has been successfully confirmed. We have received your request and our team will process it shortly.
-                                </span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Booking Summary:</span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                  <br>
-                                  <strong>Items Selected:</strong> ${totalItems} items<br>
-                                  <strong>Status:</strong> <span style="background-color:#f8f9fa;padding:4px 8px;border-radius:3px;border:1px solid #e4e4e4">Pending</span>
-                                </span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Selected Items:</span>
-                                <br><br>
-                                ${parsedItems.map((item, index) => `
-                                  <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                    ${index + 1}. <strong>${item.name}</strong> - ${item.price}
-                                    ${item.quantity ? ` (Qty: ${item.quantity})` : ''}
-                                  </span><br>
-                                `).join('')}
-                                <br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Pickup Address:</span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                  ${fullAddress}
-                                </span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px;font-weight:bold">Next Steps:</span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                  • Our team will review your booking within 24 hours<br>
-                                  • You'll receive a confirmation call from our pickup team<br>
-                                  • We'll schedule a convenient pickup time<br>
-                                  • Payment will be processed after pickup completion
-                                </span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                  <strong>Booking Date:</strong> ${new Date().toLocaleDateString()}
-                                </span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                  Thank you for choosing Scrapify. If you have any questions, please contact our support team.
-                                </span>
-                                <br><br>
-                                <span style="color:#202020;font-family:helvetica;font-size:15px;line-height:24px">
-                                  Best regards,<br>
-                                  The Scrapify Team
-                                </span>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                    <table border="0" cellpadding="0" cellspacing="0" width="600">
-                      <tr>
-                        <td>
-                          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width:100%">
-                            <tr>
-                              <td valign="top" style="padding-top:20px;text-align:center">
-                                <span style="color:#666;font-family:helvetica;font-size:12px;line-height:18px">
-                                  For support, contact us at info@scrapify.com
-                                </span>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            `
-          };
-
-          transporter.sendMail(salesMail, errMail =>
-            errMail && console.error('Sales Mail Error:', errMail)
-          );
-          transporter.sendMail(customerMail, errMail =>
-            errMail && console.error('Customer Mail Error:', errMail)
-          );
-
-          return res.json({
-            success: true,
-            message: 'Booking successful. Emails sent.',
-            bookingId
-          });
-        }
-      );
-    }
-  );
-
-
-
-   } catch (err) {
+    );
+  } catch (err) {
     console.error('Unexpected Error in /book-service:', err);
     return res.status(500).json({ error: 'Something went wrong. Please try again later.' });
   }
-
 });
+
 
 // Accept booking
 router.get('/admin/accept-booking/:bookingId', (req, res) => {
@@ -1649,10 +1510,10 @@ router.get('/admin/reject-booking/:bookingId', (req, res) => {
 
 
 
-// Get user orders
+
 router.get('/orders', authenticate, (req, res) => {
   const userId = req.user.id;
-  
+
   con.query(
     `SELECT 
       sb.id,
@@ -1660,17 +1521,17 @@ router.get('/orders', authenticate, (req, res) => {
       sb.selected_items,
       sb.description,
       sb.status,
-      sb.booking_date,
-      sb.booking_time,
-      sb.created_at,
-      sb.updated_at,
-      ua.street,
-      ua.area,
-      ua.city,
-      ua.pincode,
-      GROUP_CONCAT(bi.file_path) as images
+      sb.booking_date AS booking_date,
+      sb.booking_time AS booking_time,
+      sb.created_at AS created_at,
+      sb.updated_at AS updated_at,
+      ANY_VALUE(oa.street)   AS street,
+      ANY_VALUE(oa.area)     AS area,
+      ANY_VALUE(oa.city)     AS city,
+      ANY_VALUE(oa.pincode)  AS pincode,
+      GROUP_CONCAT(DISTINCT bi.file_path) AS images
     FROM service_bookings sb
-    LEFT JOIN user_addresses ua ON sb.address_id = ua.id
+    LEFT JOIN order_addresses oa ON sb.id = oa.booking_id
     LEFT JOIN booking_images bi ON sb.id = bi.booking_id
     WHERE sb.user_id = ?
     GROUP BY sb.id
@@ -1678,36 +1539,46 @@ router.get('/orders', authenticate, (req, res) => {
     [userId],
     (err, results) => {
       if (err) {
-        console.error('Error fetching orders:', err);
+        console.error('❌ Error fetching orders:', err);
         return res.status(500).json({ error: 'Failed to fetch orders' });
       }
-      
-      // Process results to format data properly
-      const orders = results.map(order => ({
-        id: order.id,
-        serviceTitle: order.service_title,
-        selectedItems: JSON.parse(order.selected_items || '[]'),
-        description: order.description,
-        status: order.status,
-        bookingDate: order.booking_date,
-        bookingTime: order.booking_time,
-        createdAt: order.created_at,
-        updatedAt: order.updated_at,
-        address: {
-          street: order.street,
-          area: order.area,
-          city: order.city,
-          pincode: order.pincode
-        },
-        images: order.images ? order.images.split(',').map(img => img.trim()) : []
-      }));
-      
+
+      const orders = results.map(order => {
+        let selectedItems = [];
+        try {
+          selectedItems = JSON.parse(order.selected_items || '[]');
+        } catch (e) {
+          selectedItems = order.selected_items ? [order.selected_items] : [];
+        }
+
+        return {
+          id: order.id,
+          serviceTitle: order.service_title,
+          selectedItems,
+          description: order.description,
+          status: order.status,
+          bookingDate: order.booking_date,
+          bookingTime: order.booking_time,
+          createdAt: order.created_at,
+          updatedAt: order.updated_at,
+          address: {
+            street: order.street,
+            area: order.area,
+            city: order.city,
+            pincode: order.pincode
+          },
+          images: order.images ? order.images.split(',').map(img => img.trim()) : []
+        };
+      });
+
       res.json({ success: true, orders });
     }
   );
 });
 
-// Update order status (for admin use)
+
+
+
 router.patch('/orders/:orderId/status', authenticate, (req, res) => {
   const { orderId } = req.params;
   const { status } = req.body;
