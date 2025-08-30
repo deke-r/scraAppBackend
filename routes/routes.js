@@ -799,56 +799,62 @@ router.post('/book-service', authenticate, upload.array('images', 10), (req, res
     const fullAddress = `${street}, ${area}, ${city} - ${pincode}`;
 
     // Step 1: Create booking
-    con.query(
-      `INSERT INTO service_bookings 
-       (user_id, service_id, service_title, selected_items, description, booking_date, booking_time, status, created_at, updated_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [
-        req.user.id,
-        serviceId,
-        serviceTitle || `Service #${serviceId}`,
-        JSON.stringify(parsedItems),
-        description,
-        bookingDate,
-        bookingTime,
-        'pending'
-      ],
-      (err, result) => {
-        if (err) {
-          console.error('DB Error creating booking:', err);
-          return res.status(500).json({ error: 'Server error while creating booking.' });
-        }
+con.query(
+  `INSERT INTO service_bookings (...) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+  [
+    req.user.id,
+    serviceId,
+    serviceTitle || `Service #${serviceId}`,
+    JSON.stringify(parsedItems),
+    description,
+    bookingDate,
+    bookingTime,
+    'pending'
+  ],
+  (err, result) => {
+    if (err) {
+      console.error('❌ DB Error creating booking:', err);
+      return res.status(500).json({ error: 'Server error while creating booking.' });
+    }
 
-        const bookingId = result.insertId;
+    const bookingId = result.insertId;
+    console.log(`✅ Booking inserted with ID: ${bookingId}`);
 
-        // Step 2: Save order address
-        if (street && area && city && pincode) {
-          con.query(
-            `INSERT INTO order_addresses (booking_id, street, area, city, pincode) 
-             VALUES (?, ?, ?, ?, ?)`,
-            [bookingId, street, area, city, pincode],
-            err2 => {
-              if (err2) console.error('Order Address Save Error:', err2);
-            }
-          );
+    // Step 2: Save order address
+    if (street && area && city && pincode) {
+      con.query(
+        `INSERT INTO order_addresses (booking_id, street, area, city, pincode) VALUES (?, ?, ?, ?, ?)`,
+        [bookingId, street, area, city, pincode],
+        err2 => {
+          if (err2) {
+            console.error(`❌ Order Address Save Error for booking ${bookingId}:`, err2);
+          } else {
+            console.log(`✅ Order address saved for booking ${bookingId}`);
+          }
         }
+      );
+    }
 
-        // Step 3: Save images
-        if (req.files?.length) {
-          const imageValues = req.files.map(file => [
-            bookingId,
-            file.filename,
-            `uploads/${file.filename}`,
-            new Date()
-          ]);
-          con.query(
-            'INSERT INTO booking_images (booking_id, image_url, file_path, uploaded_at) VALUES ?',
-            [imageValues],
-            err2 => {
-              if (err2) console.error('Image Save Error:', err2);
-            }
-          );
+    // Step 3: Save images
+    if (req.files?.length) {
+      const imageValues = req.files.map(file => [
+        bookingId,
+        file.filename,
+        `uploads/${file.filename}`,
+        new Date()
+      ]);
+      con.query(
+        'INSERT INTO booking_images (booking_id, image_url, file_path, uploaded_at) VALUES ?',
+        [imageValues],
+        err2 => {
+          if (err2) {
+            console.error(`❌ Image Save Error for booking ${bookingId}:`, err2);
+          } else {
+            console.log(`✅ ${req.files.length} image(s) saved for booking ${bookingId}`);
+          }
         }
+      );
+    }
 
         // Step 4: Fetch user details
         con.query(
